@@ -58,6 +58,13 @@ class Database:
         self.conn.commit()
         return self.cursor.lastrowid
 
+    def user_update_password(self, id, password_hash):
+        self.cursor.execute("""
+            UPDATE users SET password_hash = ? WHERE id = ?
+        """, (password_hash, id))
+
+        self.conn.commit()
+
 
     def get_user_by_email(self, email):
         self.cursor.execute("""

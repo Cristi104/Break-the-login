@@ -15,6 +15,10 @@ def home(request: Request):
 def home(request: Request):
     return templates.TemplateResponse(request, "register.html", {"request": request})
 
+@app.get("/forgot/password", response_class=HTMLResponse)
+def home(request: Request):
+    return templates.TemplateResponse(request, "forgot_password.html", {"request": request})
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse(request, "index.html", {"request": request})
@@ -24,7 +28,7 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
     existing = db.get_user_by_email(email)
 
     if existing:
-        return templates.TemplateResponse(request, "invalid_cred.html", {"request": request})
+        return templates.TemplateResponse(request, "register.html", {"request": request, "message": "email allready in use"})
 
     user_id = db.create_user(email, password)
 
@@ -38,11 +42,15 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
 
 
 @app.post("/login")
-def login(response: Response, email: str = Form(...), password: str = Form(...)):
+def login(request: Request, email: str = Form(...), password: str = Form(...)):
     user = db.get_user_by_email(email)
 
-    if not user or user[5] == 1 or password != user[2]:
-        return templates.TemplateResponse(request, "invalid_cred.html", {"request": request})
+    if not user:
+        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "no account associated with email"})
+    if user[5] == 1:
+        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "account locked"})
+    if password != user[2]:
+        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "invalid password"})
 
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -50,4 +58,36 @@ def login(response: Response, email: str = Form(...), password: str = Form(...))
         value=user[0],
     )
 
+    return response
+
+@app.post("/forgot/password")
+def login(request: Request, email: str = Form(...)):
+    user = db.get_user_by_email(email)
+
+    if not user:
+        return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "no account associated with email"})
+    if user[5] == 1:
+        return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "account locked"})
+
+    token = user[0]
+    print(f"http://localhost:8000/reset/password?token={token}")
+
+    response = RedirectResponse(url="/login", status_code=303)
+    return response
+
+@app.get("/reset/password", response_class=HTMLResponse)
+def form(request: Request, token: str):
+    return templates.TemplateResponse( 
+        request,
+        "reset_password.html",
+        {"request": request, "token": token}
+    )
+
+@app.post("/reset/password")
+def login(request: Request, password: str = Form(...), token: str = Form(...)):
+    
+    id = token
+    db.user_update_password(id, password)
+
+    response = RedirectResponse(url="/login", status_code=303)
     return response
