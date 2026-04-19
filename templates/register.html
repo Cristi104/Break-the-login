@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+</head>
+<body>
+    <h2>Register</h2>
+    <form action="/register" method="POST">
+        <label>Email:</label><br>
+        <input type="email" name="email" required><br>
+
+        <label>Parolă:</label><br>
+        <input type="password" name="password" required><br>
+
+        <label>Rol:</label><br>
+        <select name="role" required>
+            <option value="ANALYST">ANALYST</option>
+            <option value="MANAGER">MANAGER</option>
+        </select><br>
+
+        <button type="submit">Register</button>
+    </form>
+</body>
+</html>
