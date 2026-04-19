@@ -4,6 +4,7 @@ class Database:
     def __init__(self):
         self.conn = sqlite3.connect("database.db", check_same_thread=False)
         self.cursor = self.conn.cursor()
+        self.conn.row_factory = sqlite3.Row
         self.cursor.executescript("""
             PRAGMA foreign_keys = ON;
             
@@ -71,6 +72,34 @@ class Database:
             SELECT * FROM users WHERE email = ?
         """, (email,))
         return self.cursor.fetchone()
+
+    def get_tickets(self):
+        res = self.conn.execute("SELECT * FROM tickets ORDER BY id DESC").fetchall()
+        return res
+
+    def get_ticket_by_id(self, ticket_id):
+        res = self.conn.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,)).fetchone()
+        return res
+
+    def ticket_delete(self, ticket_id):
+        self.conn.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
+        self.conn.commit()
+    
+    def ticket_update(self, title, description, severity, status, owner_id, ticket_id):
+        self.conn.execute("""
+            UPDATE tickets
+            SET title = ?, description = ?, severity = ?, status = ?, owner_id = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (title, description, severity, status, owner_id, ticket_id))
+        self.conn.commit()
+
+
+    def create_ticket(self, title, description, severity, status, owner_id):
+        self.conn.execute("""
+            INSERT INTO tickets (title, description, severity, status, owner_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (title, description, severity, status, owner_id))
+        self.conn.commit()
 
     def __del__(self):
         self.conn.close()

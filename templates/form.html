@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+{% if ticket %}
+    <h1>Edit Ticket</h1>
+    <form method="post" action="/tickets/{{ ticket.id }}/edit">
+{% else %}
+    <h1>New Ticket</h1>
+    <form method="post" action="/tickets/new">
+{% endif %}
+
+    <input name="title" placeholder="Title"
+        value="{{ ticket.title if ticket else '' }}" required>
+
+    <br><br>
+
+    <textarea name="description" placeholder="Description">{{ ticket.description if ticket else '' }}</textarea>
+
+    <br><br>
+
+    <select name="severity">
+        <option value="LOW" {% if ticket and ticket.severity=='LOW' %}selected{% endif %}>LOW</option>
+        <option value="MED" {% if ticket and ticket.severity=='MED' %}selected{% endif %}>MED</option>
+        <option value="HIGH" {% if ticket and ticket.severity=='HIGH' %}selected{% endif %}>HIGH</option>
+    </select>
+
+    <select name="status">
+        <option value="OPEN" {% if ticket and ticket.status=='OPEN' %}selected{% endif %}>OPEN</option>
+        <option value="IN_PROGRESS" {% if ticket and ticket.status=='IN_PROGRESS' %}selected{% endif %}>IN_PROGRESS</option>
+        <option value="RESOLVED" {% if ticket and ticket.status=='RESOLVED' %}selected{% endif %}>RESOLVED</option>
+    </select>
+
+    <br><br>
+
+    <button type="submit">Save</button>
+</form>
+
+{% endblock %}

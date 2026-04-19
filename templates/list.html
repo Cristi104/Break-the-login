@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Tickets</h1>
+
+<ul>
+    {% for t in tickets %}
+        <li>
+            <a href="/tickets/{{ t.id }}">{{ t.title }}</a>
+            ({{ t.severity }} / {{ t.status }})
+        </li>
+    {% endfor %}
+</ul>
+
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h2>{{ ticket.title }}</h2>
+
+<p>{{ ticket.description }}</p>
+
+<ul>
+    <li>Severity: {{ ticket.severity }}</li>
+    <li>Status: {{ ticket.status }}</li>
+    <li>Owner ID: {{ ticket.owner_id }}</li>
+    <li>Created: {{ ticket.created_at }}</li>
+    <li>Updated: {{ ticket.updated_at }}</li>
+</ul>
+
+<a href="/tickets/{{ ticket.id }}/edit">Edit</a>
+
+<form action="/tickets/{{ ticket.id }}/delete" method="post" style="margin-top:10px;">
+    <button type="submit">Delete</button>
+</form>
+
+{% endblock %}
