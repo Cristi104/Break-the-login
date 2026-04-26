@@ -3,6 +3,16 @@ from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import re
+import bcrypt
+
+
+def hash_password(password):
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed_password
+
+def check_password(password, hashed_password):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
 
 def check_password_policy(password):
     if len(password) < 8:
@@ -53,7 +63,7 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
         return templates.TemplateResponse(request, "register.html", {"request": request, "message": "weak password"})
 
 
-    user_id = db.create_user(email, password)
+    user_id = db.create_user(email, hash_password(password))
 
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
@@ -72,7 +82,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "no account associated with email"})
     if user["locked"] == 1:
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "account locked"})
-    if password != user["password_hash"]:
+    if not check_password(password, user["password_hash"]):
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "invalid password"})
 
     response = RedirectResponse(url="/", status_code=303)
@@ -117,7 +127,7 @@ def login(request: Request, password: str = Form(...), token: str = Form(...)):
         )
 
     id = token
-    db.user_update_password(id, password)
+    db.user_update_password(id, hash_password(password))
 
     response = RedirectResponse(url="/login", status_code=303)
     return response
