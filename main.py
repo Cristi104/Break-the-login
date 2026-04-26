@@ -1,13 +1,22 @@
 import src.db
-from fastapi import FastAPI, Form, Request, Response
+from fastapi import FastAPI, HTTPException, Form, Request, Response, status, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from datetime import datetime, timedelta
+from typing import Optional
 import re
 import bcrypt
+import secrets
 
 MAX_ATTEMPTS = 3
-user_attempts = {} # Dictionary to store login attempts for each user
+user_attempts = {}
+logged_in_users = {}
+SECRET_KEY = "secret-key"
 
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 def login(username, password):
     if username not in user_attempts:
         user_attempts[username] = 0
@@ -74,7 +83,11 @@ def home(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"request": request})
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        return templates.TemplateResponse(request, "index.html", {"request": request, "loggedin": 0})
+    return templates.TemplateResponse(request, "index.html", {"request": request, "loggedin": 1})
 
 @app.post("/register")
 def register(request: Request, email: str = Form(...), password: str = Form(...)):
@@ -85,10 +98,18 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
 
     user_id = db.create_user(email, hash_password(password))
 
+    expires_at = datetime.utcnow() + timedelta(minutes=30)
+    session_token = secrets.token_urlsafe(32)
+    logged_in_users[session_token] = (expires_at, user_id)
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="auth",
-        value=user_id,
+        value=session_token,
+        expires=int(expires_at.timestamp()),
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        path="/"
     )
 
     return response
@@ -108,10 +129,19 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "wrong password or email"})
 
     user_attempts[email] = 0
+
+    expires_at = datetime.utcnow() + timedelta(minutes=30)
+    session_token = secrets.token_urlsafe(32)
+    logged_in_users[session_token] = (expires_at, user["id"])
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="auth",
-        value=user["id"],
+        value=session_token,
+        expires=int(expires_at.timestamp()),
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        path="/"
     )
 
     return response
@@ -157,6 +187,14 @@ def login(request: Request, password: str = Form(...), token: str = Form(...)):
 
 @app.get("/tickets")
 def list_tickets(request: Request):
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     tickets = db.get_tickets()
     return templates.TemplateResponse(request, "list.html", {
         "request": request,
@@ -166,6 +204,14 @@ def list_tickets(request: Request):
 
 @app.get("/tickets/new")
 def new_ticket_form(request: Request):
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     return templates.TemplateResponse(request, "form.html", {
         "request": request,
         "ticket": None
@@ -180,13 +226,29 @@ def create_ticket(
     severity: str = Form("LOW"),
     status: str = Form("OPEN"),
 ):
-    owner_id = request.cookies.get("auth")
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    owner_id = logged_in_users[auth][1]
     db.create_ticket(title, description, severity, status, owner_id)
     return RedirectResponse("/tickets", status_code=303)
 
 
 @app.get("/tickets/{ticket_id}", response_class=HTMLResponse)
 def view_ticket(request: Request, ticket_id: int):
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     ticket = db.get_ticket_by_id(ticket_id)
 
     return templates.TemplateResponse(request, "detail.html", {
@@ -197,6 +259,14 @@ def view_ticket(request: Request, ticket_id: int):
 
 @app.get("/tickets/{ticket_id}/edit")
 def edit_form(request: Request, ticket_id: int):
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     ticket = db.get_ticket_by_id(ticket_id)
     return templates.TemplateResponse(request, "form.html", {
         "request": request,
@@ -213,11 +283,43 @@ def update_ticket(
     severity: str = Form("LOW"),
     status: str = Form("OPEN"),
 ):
-    owner_id = request.cookies.get("auth")
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    owner_id = logged_in_users[auth][1]
     db.ticket_update(title, description, severity, status, owner_id, ticket_id)
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=303)
 
 @app.post("/tickets/{ticket_id}/delete")
-def delete_ticket(ticket_id: int):
+def delete_ticket(request: Request, ticket_id: int):
+    auth = request.cookies.get("auth")
+    if not auth or datetime.utcnow() > logged_in_users[auth][0]:
+        logged_in_users.pop(auth, None)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
     db.ticket_delete(ticket_id)
     return RedirectResponse("/tickets", status_code=303)
+
+@app.get("/logout")
+async def logout(request: Request):
+    auth = request.cookies.get("auth")
+    logged_in_users.pop(auth, None)
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        key="auth",
+        value="",
+        expires=0,
+        httponly=True,
+        secure=True,
+        samesite="Strict",
+        path="/"
+    )
+    return response
