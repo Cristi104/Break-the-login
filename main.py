@@ -2,6 +2,25 @@ import src.db
 from fastapi import FastAPI, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+import re
+
+def check_password_policy(password):
+    if len(password) < 8:
+        return False
+
+    if not re.search(r"[A-Z]", password):
+        return False
+
+    if not re.search(r"[a-z]", password):
+        return False
+
+    if not re.search(r"[0-9]", password):
+        return False
+
+    if not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>/?`~]", password):
+        return False
+
+    return True
 
 db = src.db.Database()
 app = FastAPI()
@@ -29,6 +48,10 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
 
     if existing:
         return templates.TemplateResponse(request, "register.html", {"request": request, "message": "email allready in use"})
+
+    if not check_password_policy(password):
+        return templates.TemplateResponse(request, "register.html", {"request": request, "message": "weak password"})
+
 
     user_id = db.create_user(email, password)
 
