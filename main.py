@@ -11,7 +11,7 @@ import secrets
 MAX_ATTEMPTS = 3
 user_attempts = {}
 logged_in_users = {}
-SECRET_KEY = "secret-key"
+passwrod_resets = {}
 
 
 if __name__ == "__main__":
@@ -154,7 +154,9 @@ def login(request: Request, email: str = Form(...)):
         response = RedirectResponse(url="/login", status_code=303)
         return response
 
-    token = user["id"]
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+    token = secrets.token_urlsafe(32)
+    passwrod_resets[token] = (expires_at, user["id"])
     print(f"http://localhost:8000/reset/password?token={token}")
 
     response = RedirectResponse(url="/login", status_code=303)
@@ -170,7 +172,15 @@ def form(request: Request, token: str):
 
 @app.post("/reset/password")
 def login(request: Request, password: str = Form(...), token: str = Form(...)):
-    
+    if token not in passwrod_resets.keys():
+        passwrod_resets.pop(token, None)
+        response = RedirectResponse(url="/login", status_code=303)
+        return response
+        
+    if token in passwrod_resets.keys() and passwrod_resets[token][0] < datetime.utcnow():
+        response = RedirectResponse(url="/login", status_code=303)
+        return response
+
     if not check_password_policy(password):
         return templates.TemplateResponse( 
             request, 
@@ -178,7 +188,7 @@ def login(request: Request, password: str = Form(...), token: str = Form(...)):
             {"request": request, "token": token, "message": "weak password"}
         )
 
-    id = token
+    id = passwrod_resets[token][1]
     db.user_update_password(id, hash_password(password))
     db.user_update_locked(id, 0)
 
