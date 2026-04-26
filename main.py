@@ -158,3 +158,13 @@ def update_ticket(
 def delete_ticket(ticket_id: int):
     db.ticket_delete(ticket_id)
     return RedirectResponse("/tickets", status_code=303)
+
+@app.get("/logout")
+async def logout(request: Request):
+    auth = request.cookies.get("auth")
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(
+        key="auth",
+        value=""
+    )
+    return response
