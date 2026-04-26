@@ -80,12 +80,8 @@ def home(request: Request):
 def register(request: Request, email: str = Form(...), password: str = Form(...)):
     existing = db.get_user_by_email(email)
 
-    if existing:
-        return templates.TemplateResponse(request, "register.html", {"request": request, "message": "email allready in use"})
-
-    if not check_password_policy(password):
-        return templates.TemplateResponse(request, "register.html", {"request": request, "message": "weak password"})
-
+    if existing or not check_password_policy(password):
+        return templates.TemplateResponse(request, "register.html", {"request": request, "message": "invalid password or email"})
 
     user_id = db.create_user(email, hash_password(password))
 
@@ -106,15 +102,10 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
 
 
     user_attempts[email] += 1
-    print(user["locked"])
     if user_attempts[email] == MAX_ATTEMPTS:
         db.user_update_locked(user["id"], 1)
-    if not user:
-        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "no account associated with email"})
-    if user["locked"] == 1:
-        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "account locked"})
-    if not check_password(password, user["password_hash"]):
-        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "invalid password"})
+    if not user or user["locked"] == 1 or not check_password(password, user["password_hash"]):
+        return templates.TemplateResponse(request, "login.html", {"request": request, "message": "wrong password or email"})
 
     user_attempts[email] = 0
     response = RedirectResponse(url="/", status_code=303)
@@ -130,7 +121,8 @@ def login(request: Request, email: str = Form(...)):
     user = db.get_user_by_email(email)
 
     if not user:
-        return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "no account associated with email"})
+        response = RedirectResponse(url="/login", status_code=303)
+        return response
 
     token = user["id"]
     print(f"http://localhost:8000/reset/password?token={token}")
