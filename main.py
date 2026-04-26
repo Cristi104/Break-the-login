@@ -89,10 +89,10 @@ def login(request: Request, email: str = Form(...)):
 
     if not user:
         return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "no account associated with email"})
-    if user[5] == 1:
+    if user["locked"] == 1:
         return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "account locked"})
 
-    token = user[0]
+    token = user["id"]
     print(f"http://localhost:8000/reset/password?token={token}")
 
     response = RedirectResponse(url="/login", status_code=303)
@@ -109,6 +109,13 @@ def form(request: Request, token: str):
 @app.post("/reset/password")
 def login(request: Request, password: str = Form(...), token: str = Form(...)):
     
+    if not check_password_policy(password):
+        return templates.TemplateResponse( 
+            request, 
+            "reset_password.html",
+            {"request": request, "token": token, "message": "weak password"}
+        )
+
     id = token
     db.user_update_password(id, password)
 

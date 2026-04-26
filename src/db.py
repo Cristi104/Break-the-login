@@ -3,8 +3,8 @@ import sqlite3
 class Database:
     def __init__(self):
         self.conn = sqlite3.connect("database.db", check_same_thread=False)
-        self.cursor = self.conn.cursor()
         self.conn.row_factory = sqlite3.Row
+        self.cursor = self.conn.cursor()
         self.cursor.executescript("""
             PRAGMA foreign_keys = ON;
             
