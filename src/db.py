@@ -66,6 +66,12 @@ class Database:
 
         self.conn.commit()
 
+    def user_update_locked(self, id, locked):
+        self.cursor.execute("""
+            UPDATE users SET locked = ? WHERE id = ?
+        """, (locked, id))
+
+        self.conn.commit()
 
     def get_user_by_email(self, email):
         self.cursor.execute("""

@@ -5,6 +5,30 @@ from fastapi.templating import Jinja2Templates
 import re
 import bcrypt
 
+MAX_ATTEMPTS = 3
+user_attempts = {} # Dictionary to store login attempts for each user
+
+def login(username, password):
+    if username not in user_attempts:
+        user_attempts[username] = 0
+
+    if user_attempts[username] >= MAX_ATTEMPTS:
+        print(f"Account for {username} is locked due to too many failed attempts.")
+        return False
+
+    # In a real application, you'd verify the password against a stored hash
+    if username == "myuser" and password == "mypassword": # Placeholder for actual password check
+        print(f"Welcome, {username}!")
+        user_attempts[username] = 0 # Reset attempts on successful login
+        return True
+    else:
+        user_attempts[username] += 1
+        attempts_left = MAX_ATTEMPTS - user_attempts[username]
+        if attempts_left > 0:
+            print(f"Incorrect password for {username}. {attempts_left} attempts remaining.")
+        else:
+            print(f"Incorrect password for {username}. Account locked.")
+        return False
 
 def hash_password(password):
     salt = bcrypt.gensalt()
@@ -77,7 +101,14 @@ def register(request: Request, email: str = Form(...), password: str = Form(...)
 @app.post("/login")
 def login(request: Request, email: str = Form(...), password: str = Form(...)):
     user = db.get_user_by_email(email)
+    if email not in user_attempts:
+        user_attempts[email] = 0
 
+
+    user_attempts[email] += 1
+    print(user["locked"])
+    if user_attempts[email] == MAX_ATTEMPTS:
+        db.user_update_locked(user["id"], 1)
     if not user:
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "no account associated with email"})
     if user["locked"] == 1:
@@ -85,6 +116,7 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
     if not check_password(password, user["password_hash"]):
         return templates.TemplateResponse(request, "login.html", {"request": request, "message": "invalid password"})
 
+    user_attempts[email] = 0
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="auth",
@@ -99,8 +131,6 @@ def login(request: Request, email: str = Form(...)):
 
     if not user:
         return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "no account associated with email"})
-    if user["locked"] == 1:
-        return templates.TemplateResponse(request, "forgot_password.html", {"request": request, "message": "account locked"})
 
     token = user["id"]
     print(f"http://localhost:8000/reset/password?token={token}")
@@ -128,6 +158,7 @@ def login(request: Request, password: str = Form(...), token: str = Form(...)):
 
     id = token
     db.user_update_password(id, hash_password(password))
+    db.user_update_locked(id, 0)
 
     response = RedirectResponse(url="/login", status_code=303)
     return response
