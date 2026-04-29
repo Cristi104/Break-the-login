@@ -13,32 +13,6 @@ user_attempts = {}
 logged_in_users = {}
 passwrod_resets = {}
 
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-def login(username, password):
-    if username not in user_attempts:
-        user_attempts[username] = 0
-
-    if user_attempts[username] >= MAX_ATTEMPTS:
-        print(f"Account for {username} is locked due to too many failed attempts.")
-        return False
-
-    # In a real application, you'd verify the password against a stored hash
-    if username == "myuser" and password == "mypassword": # Placeholder for actual password check
-        print(f"Welcome, {username}!")
-        user_attempts[username] = 0 # Reset attempts on successful login
-        return True
-    else:
-        user_attempts[username] += 1
-        attempts_left = MAX_ATTEMPTS - user_attempts[username]
-        if attempts_left > 0:
-            print(f"Incorrect password for {username}. {attempts_left} attempts remaining.")
-        else:
-            print(f"Incorrect password for {username}. Account locked.")
-        return False
-
 def hash_password(password):
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
