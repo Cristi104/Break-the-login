@@ -191,6 +191,7 @@ def login(request: Request, password: str = Form(...), token: str = Form(...)):
     id = passwrod_resets[token][1]
     db.user_update_password(id, hash_password(password))
     db.user_update_locked(id, 0)
+    passwrod_resets.pop(token, None)
 
     response = RedirectResponse(url="/login", status_code=303)
     return response
