@@ -21,7 +21,10 @@ def home(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return templates.TemplateResponse(request, "index.html", {"request": request})
+    auth = request.cookies.get("auth")
+    if not auth:
+        return templates.TemplateResponse(request, "index.html", {"request": request, "loggedin": 0})
+    return templates.TemplateResponse(request, "index.html", {"request": request, "loggedin": 1})
 
 @app.post("/register")
 def register(request: Request, email: str = Form(...), password: str = Form(...)):
